@@ -1,0 +1,35 @@
+{
+  "name": "@ai-fitness-coach/root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI 3D Fitness Coach - Monorepo",
+  "workspaces": [
+    "packages/pose-analysis-3d",
+    "packages/coaching-engine",
+    "packages/fitness-coach-app"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/fitness-coach-app",
+    "build": "npm run build --workspaces --if-present",
+    "build:all": "npm run build --workspaces --if-present",
+    "export": "npm run build && npm run export --workspace=packages/fitness-coach-app",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist packages/*/.next packages/*/out"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
