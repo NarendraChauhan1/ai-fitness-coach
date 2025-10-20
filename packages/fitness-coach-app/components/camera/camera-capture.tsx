@@ -247,7 +247,7 @@ export function CameraCapture({ onReady, onError, className = '', autoStart = fa
               Enable Camera
             </button>
             <p className="text-gray-300 text-sm mt-4">
-              Click "Allow" when your browser asks for camera permission
+              Click &quot;Allow&quot; when your browser asks for camera permission
             </p>
           </div>
         </div>
@@ -276,9 +276,9 @@ export function CameraCapture({ onReady, onError, className = '', autoStart = fa
               <div className="bg-yellow-900 bg-opacity-50 border border-yellow-600 rounded-lg p-4 mb-4 text-left">
                 <p className="text-yellow-200 text-sm font-semibold mb-2">How to fix:</p>
                 <ol className="text-yellow-100 text-sm space-y-1 list-decimal list-inside">
-                  <li>Click the camera icon in your browser's address bar</li>
-                  <li>Select "Allow" for camera access</li>
-                  <li>Click the "Try Again" button below</li>
+                  <li>Click the camera icon in your browser&apos;s address bar</li>
+                  <li>Select &quot;Allow&quot; for camera access</li>
+                  <li>Click the &quot;Try Again&quot; button below</li>
                 </ol>
               </div>
             )}

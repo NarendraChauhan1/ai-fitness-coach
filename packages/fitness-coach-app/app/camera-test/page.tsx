@@ -21,7 +21,7 @@ export default function CameraTestPage() {
       <div className="p-4 text-white">
         <h2 className="text-xl mb-2">Instructions:</h2>
         <ol className="list-decimal list-inside space-y-2 text-gray-300">
-          <li>You should see a permission screen with "Enable Camera" button</li>
+          <li>You should see a permission screen with &quot;Enable Camera&quot; button</li>
           <li>Click the button</li>
           <li>Allow camera access when prompted</li>
           <li>Camera should start</li>

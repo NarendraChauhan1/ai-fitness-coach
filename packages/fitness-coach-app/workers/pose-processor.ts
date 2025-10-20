@@ -90,7 +90,7 @@ async function handleInit(config?: { minDetectionConfidence?: number; minTrackin
 /**
  * Process video frame for pose detection
  */
-async function handleProcessFrame(imageData: ImageData, timestamp: number) {
+async function handleProcessFrame(imageData: ImageData, _timestamp: number) {
   if (!detector || !isInitialized) {
     postError('Detector not initialized');
     return;
@@ -99,11 +99,8 @@ async function handleProcessFrame(imageData: ImageData, timestamp: number) {
   const startTime = performance.now();
 
   try {
-    // Create ImageBitmap from ImageData for better performance
-    const imageBitmap = await createImageBitmap(imageData);
-
-    // Detect pose
-    const poseFrame = await detector.detectPose(imageBitmap);
+    // Detect pose directly from ImageData
+    const poseFrame = await detector.detectPose(imageData);
 
     // Calculate processing time
     const processingTime = performance.now() - startTime;
@@ -115,8 +112,6 @@ async function handleProcessFrame(imageData: ImageData, timestamp: number) {
       processingTime,
     });
 
-    // Clean up
-    imageBitmap.close();
   } catch (error) {
     if (error instanceof Error && error.message.includes('No pose detected')) {
       postResponse({

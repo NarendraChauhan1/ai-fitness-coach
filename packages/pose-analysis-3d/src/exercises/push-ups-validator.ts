@@ -1,5 +1,5 @@
 import { PoseFrame, LandmarkID, FormErrorType, Severity } from '../types';
-import { calculateAngle, calculateDistance3D } from '../geometry';
+import { calculateAngle } from '../geometry';
 import { FormValidator, FormError, FormValidationResult, FormMeasurements } from './form-validator';
 
 /**
@@ -9,7 +9,7 @@ export class PushUpsValidator extends FormValidator {
   /**
    * Validate push-ups form
    */
-  validateForm(frame: PoseFrame, previousFrames?: PoseFrame[]): FormValidationResult {
+  validateForm(frame: PoseFrame, _previousFrames?: PoseFrame[]): FormValidationResult {
     const errors: FormError[] = [];
     const measurements: FormMeasurements = {};
 

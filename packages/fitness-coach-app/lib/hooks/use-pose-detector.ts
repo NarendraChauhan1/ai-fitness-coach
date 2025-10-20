@@ -31,6 +31,12 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
   const restartTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const restartAttemptsRef = useRef(0);
   const MAX_RESTART_ATTEMPTS = 3;
+  const optionsRef = useRef(options);
+  const initializeWorkerRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   /**
    * Handle worker crash and attempt restart
@@ -44,7 +50,7 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
         error: 'Worker crashed permanently after 3 attempts',
         isInitialized: false,
       }));
-      options.onError?.('Pose detector failed permanently. Please refresh the page.');
+      optionsRef.current?.onError?.('Pose detector failed permanently. Please refresh the page.');
       return;
     }
 
@@ -60,9 +66,9 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
     // Attempt restart after delay
     restartTimeoutRef.current = setTimeout(() => {
       console.log(`Restart attempt ${restartAttemptsRef.current}/${MAX_RESTART_ATTEMPTS}`);
-      initializeWorker();
+      initializeWorkerRef.current();
     }, 1000); // 1 second delay
-  }, [options]);
+  }, []);
 
   /**
    * Initialize or restart worker
@@ -91,14 +97,14 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
               isInitialized: false,
               error: message.error || 'Initialization failed',
             }));
-            options.onError?.(message.error || 'Initialization failed');
+            optionsRef.current?.onError?.(message.error || 'Initialization failed');
           }
           break;
 
         case 'POSE_DETECTED':
           updateFPS();
           setState((prev) => ({ ...prev, isProcessing: false }));
-          options.onPoseDetected?.(message.poseFrame);
+          optionsRef.current?.onPoseDetected?.(message.poseFrame);
           break;
 
         case 'POSE_NOT_DETECTED':
@@ -108,7 +114,7 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
 
         case 'ERROR':
           setState((prev) => ({ ...prev, isProcessing: false, error: message.error }));
-          options.onError?.(message.error);
+          optionsRef.current?.onError?.(message.error);
           break;
 
         case 'DISPOSED':

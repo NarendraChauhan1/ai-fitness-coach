@@ -1,5 +1,4 @@
 import { PoseFrame, ExerciseType, Discipline, FormErrorType, Severity } from '../types';
-import { calculateAngle } from '../geometry';
 
 /**
  * Form validation result
@@ -128,8 +127,8 @@ export class FormValidator {
    * Validate form for current frame
    */
   validateForm(
-    frame: PoseFrame,
-    previousFrames?: PoseFrame[]
+    _frame: PoseFrame,
+    _previousFrames?: PoseFrame[]
   ): FormValidationResult {
     const errors: FormError[] = [];
     const measurements: FormMeasurements = {};
