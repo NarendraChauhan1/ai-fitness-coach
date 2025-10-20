@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { FeedbackPrompt, Severity, TTSStatus } from '../types';
 
 /**
@@ -26,7 +27,6 @@ export interface VoiceCoachConfig {
 export class VoiceCoach {
   private speechSynthesis: SpeechSynthesis | null = null;
   private queue: FeedbackPrompt[] = [];
-  private currentSpeech: SpeechSynthesisUtterance | null = null;
   private speaking = false;
   private config: Required<VoiceCoachConfig>;
   private lastSpeakTime = 0;
@@ -67,7 +67,7 @@ export class VoiceCoach {
       // Select voice
       if (this.config.voiceName) {
         const voices = this.speechSynthesis!.getVoices();
-        const voice = voices.find((v) => v.name === this.config.voiceName);
+        const voice = voices.find((v: SpeechSynthesisVoice) => v.name === this.config.voiceName);
         if (voice) {
           utterance.voice = voice;
         }
@@ -76,21 +76,18 @@ export class VoiceCoach {
       utterance.onstart = () => {
         feedback.ttsStatus = TTSStatus.SPEAKING;
         this.speaking = true;
-        this.currentSpeech = utterance;
       };
 
       utterance.onend = () => {
         feedback.ttsStatus = TTSStatus.COMPLETED;
         this.speaking = false;
-        this.currentSpeech = null;
         this.processQueue();
         resolve();
       };
 
-      utterance.onerror = (error) => {
+      utterance.onerror = (error: SpeechSynthesisErrorEvent) => {
         feedback.ttsStatus = TTSStatus.FAILED;
         this.speaking = false;
-        this.currentSpeech = null;
         reject(error);
       };
 
@@ -180,7 +177,6 @@ export class VoiceCoach {
     if (this.speechSynthesis) {
       this.speechSynthesis.cancel();
       this.speaking = false;
-      this.currentSpeech = null;
     }
   }
 

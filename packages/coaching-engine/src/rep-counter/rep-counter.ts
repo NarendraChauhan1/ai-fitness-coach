@@ -64,7 +64,7 @@ export class RepCounter {
   private config: Required<RepCounterConfig>;
 
   constructor(
-    private exercise: ExerciseType,
+    _exercise: ExerciseType,
     config: RepCounterConfig = {}
   ) {
     this.config = {

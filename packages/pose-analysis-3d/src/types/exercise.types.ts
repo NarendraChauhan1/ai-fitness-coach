@@ -26,6 +26,8 @@ export enum FormErrorType {
   SHALLOW_DEPTH = 'shallow_depth',
   ASYMMETRIC_MOVEMENT = 'asymmetric_movement',
   NECK_MISALIGNMENT = 'neck_misalignment',
+  POSE_INCOMPLETE = 'pose_incomplete',
+  INCORRECT_JOINT_ANGLE = 'incorrect_joint_angle',
 }
 
 /**
