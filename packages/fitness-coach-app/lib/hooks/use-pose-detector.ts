@@ -32,7 +32,6 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
   const restartAttemptsRef = useRef(0);
   const MAX_RESTART_ATTEMPTS = 3;
   const optionsRef = useRef(options);
-  const initializeWorkerRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     optionsRef.current = options;
@@ -63,17 +62,32 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
     // Increment restart attempts
     restartAttemptsRef.current++;
 
-    // Attempt restart after delay
-    restartTimeoutRef.current = setTimeout(() => {
-      console.log(`Restart attempt ${restartAttemptsRef.current}/${MAX_RESTART_ATTEMPTS}`);
-      initializeWorkerRef.current();
-    }, 1000); // 1 second delay
+    // Restart will be triggered by setting a flag
+    setState((prev) => ({ ...prev, error: 'Worker crashed, restarting...', isInitialized: false }));
+  }, []);
+
+  /**
+   * Update FPS counter
+   */
+  const updateFPS = useCallback(() => {
+    fpsCounterRef.current.frames++;
+    const now = performance.now();
+    const elapsed = now - fpsCounterRef.current.lastTime;
+
+    if (elapsed >= 1000) {
+      const fps = Math.round((fpsCounterRef.current.frames / elapsed) * 1000);
+      setState((prev) => ({ ...prev, fps }));
+      fpsCounterRef.current.frames = 0;
+      fpsCounterRef.current.lastTime = now;
+    }
   }, []);
 
   /**
    * Initialize or restart worker
    */
   const initializeWorker = useCallback(() => {
+    console.log('[PoseDetector] Initializing worker...');
+    
     // Create Web Worker
     workerRef.current = new Worker(new URL('../../workers/pose-processor.ts', import.meta.url));
 
@@ -90,8 +104,11 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
       switch (message.type) {
         case 'INITIALIZED':
           if (message.success) {
+            console.log('[PoseDetector] Worker initialized successfully');
             setState((prev) => ({ ...prev, isInitialized: true, error: null }));
+            restartAttemptsRef.current = 0; // Reset on success
           } else {
+            console.error('[PoseDetector] Worker initialization failed:', message.error);
             setState((prev) => ({
               ...prev,
               isInitialized: false,
@@ -113,11 +130,13 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
           break;
 
         case 'ERROR':
+          console.error('[PoseDetector] Worker error:', message.error);
           setState((prev) => ({ ...prev, isProcessing: false, error: message.error }));
           optionsRef.current?.onError?.(message.error);
           break;
 
         case 'DISPOSED':
+          console.log('[PoseDetector] Worker disposed');
           setState((prev) => ({ ...prev, isInitialized: false }));
           break;
       }
@@ -125,13 +144,7 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
 
     // Initialize detector
     workerRef.current.postMessage({ type: 'INIT' });
-
-    // Reset restart attempts on successful initialization
-    if (restartAttemptsRef.current > 0) {
-      console.log('Worker successfully restarted');
-      restartAttemptsRef.current = 0;
-    }
-  }, [handleWorkerCrash]);
+  }, [handleWorkerCrash, updateFPS]);
 
   useEffect(() => {
     initializeWorker();
@@ -148,22 +161,6 @@ export function usePoseDetector(options: UsePoseDetectorOptions = {}) {
       }
     };
   }, [initializeWorker]);
-
-  /**
-   * Update FPS counter
-   */
-  const updateFPS = () => {
-    fpsCounterRef.current.frames++;
-    const now = performance.now();
-    const elapsed = now - fpsCounterRef.current.lastTime;
-
-    if (elapsed >= 1000) {
-      const fps = Math.round((fpsCounterRef.current.frames / elapsed) * 1000);
-      setState((prev) => ({ ...prev, fps }));
-      fpsCounterRef.current.frames = 0;
-      fpsCounterRef.current.lastTime = now;
-    }
-  };
 
   /**
    * Process a video frame

@@ -117,6 +117,14 @@ export function WorkoutSession({ exercise, discipline }: WorkoutSessionProps) {
     (detectedPoseFrame: PoseFrame) => {
       setPoseFrame(detectedPoseFrame);
 
+      // Log first pose detection
+      if (detectedPoseFrame.frameNumber === 1) {
+        console.log('[WorkoutSession] First pose detected!', {
+          landmarks: detectedPoseFrame.landmarks.length,
+          confidence: detectedPoseFrame.confidence.average,
+        });
+      }
+
       setPoseNotDetected(false);
       if (poseDetectionTimeoutRef.current) {
         clearTimeout(poseDetectionTimeoutRef.current);
@@ -286,6 +294,7 @@ export function WorkoutSession({ exercise, discipline }: WorkoutSessionProps) {
           <CameraCapture 
             onReady={handleCameraReady} 
             className="w-full h-full"
+            autoStart={true}
           />
           <PoseOverlay
             poseFrame={poseFrame}

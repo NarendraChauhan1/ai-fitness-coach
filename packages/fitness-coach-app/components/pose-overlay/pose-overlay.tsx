@@ -54,6 +54,12 @@ function getDepthColor(z: number): string {
 const PoseOverlayComponent = ({ poseFrame, videoWidth, videoHeight, className = '' }: PoseOverlayProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
+  const poseFrameRef = useRef<PoseFrame | null>(null);
+
+  // Keep poseFrame in a ref to avoid recreating render loop
+  useEffect(() => {
+    poseFrameRef.current = poseFrame;
+  }, [poseFrame]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -65,8 +71,14 @@ const PoseOverlayComponent = ({ poseFrame, videoWidth, videoHeight, className = 
 
     // Start render loop
     const render = () => {
-      if (poseFrame) {
-        drawPose(canvas, poseFrame);
+      if (poseFrameRef.current) {
+        drawPose(canvas, poseFrameRef.current);
+      } else {
+        // Clear canvas if no pose
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
       }
       animationFrameRef.current = requestAnimationFrame(render);
     };
@@ -78,11 +90,14 @@ const PoseOverlayComponent = ({ poseFrame, videoWidth, videoHeight, className = 
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [poseFrame, videoWidth, videoHeight]);
+  }, [videoWidth, videoHeight]);
 
   const drawPose = (canvas: HTMLCanvasElement, frame: PoseFrame) => {
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      console.warn('[PoseOverlay] No canvas context');
+      return;
+    }
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -90,6 +105,9 @@ const PoseOverlayComponent = ({ poseFrame, videoWidth, videoHeight, className = 
     // Set drawing styles
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
+
+    let visibleLandmarks = 0;
+    let drawnConnections = 0;
 
     // Draw connections
     for (const [startId, endId] of SKELETON_CONNECTIONS) {
@@ -116,6 +134,8 @@ const PoseOverlayComponent = ({ poseFrame, videoWidth, videoHeight, className = 
       ctx.moveTo(startX, startY);
       ctx.lineTo(endX, endY);
       ctx.stroke();
+      
+      drawnConnections++;
     }
 
     // Draw landmarks as circles
@@ -137,6 +157,15 @@ const PoseOverlayComponent = ({ poseFrame, videoWidth, videoHeight, className = 
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.lineWidth = 3; // Reset
+      
+      visibleLandmarks++;
+    }
+
+    // Log every 60 frames (about once per second at 60 FPS)
+    if (frame.frameNumber % 60 === 0) {
+      console.log(
+        `[PoseOverlay] Frame ${frame.frameNumber}: Drew ${drawnConnections} connections, ${visibleLandmarks} landmarks, confidence: ${(frame.confidence.average * 100).toFixed(0)}%`
+      );
     }
 
     // Draw confidence indicator
