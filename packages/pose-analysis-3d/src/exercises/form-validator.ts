@@ -58,6 +58,16 @@ export interface FormMeasurements {
 
   /** Back curvature (degrees deviation from straight) */
   spineAngle?: number;
+
+  hipLiftHeight?: number;
+  hipRotation?: number;
+  standingLegAngle?: number;
+  hipTilt?: number;
+  legSpreadRatio?: number;
+  shoulderAsymmetry?: number;
+  armElevation?: { left: number; right: number };
+  armExtension?: { left: number; right: number };
+  kneeAngleDifference?: number;
 }
 
 /**

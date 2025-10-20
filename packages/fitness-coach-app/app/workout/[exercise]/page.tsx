@@ -1,7 +1,7 @@
 import { WorkoutSession } from '@/components/workout/workout-session';
 
 // Required for static export with dynamic routes
-export function generateStaticParams() {
+export async function generateStaticParams(): Promise<Array<{ exercise: string }>> {
   return [
     { exercise: 'push_ups' },
     { exercise: 'marching' },
@@ -9,15 +9,12 @@ export function generateStaticParams() {
   ];
 }
 
-interface PageProps {
-  params: {
-    exercise: string;
-  };
-  searchParams?: {
-    discipline?: string;
-  };
-}
+type WorkoutPageProps = {
+  params: Promise<{ exercise: string }>;
+};
 
-export default function WorkoutPage({ params, searchParams }: PageProps) {
-  return <WorkoutSession exercise={params.exercise} discipline={searchParams?.discipline} />;
+export default async function WorkoutPage({ params }: WorkoutPageProps) {
+  const { exercise } = await params;
+
+  return <WorkoutSession exercise={exercise} discipline={undefined} />;
 }

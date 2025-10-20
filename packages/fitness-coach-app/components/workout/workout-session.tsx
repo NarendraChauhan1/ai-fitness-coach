@@ -35,7 +35,7 @@ interface WorkoutSessionProps {
   discipline?: string;
 }
 
-export function WorkoutSession({ exercise, discipline: disciplineParam }: WorkoutSessionProps) {
+export function WorkoutSession({ exercise, discipline }: WorkoutSessionProps) {
   const router = useRouter();
 
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
@@ -72,8 +72,8 @@ export function WorkoutSession({ exercise, discipline: disciplineParam }: Workou
     }
   }, [exercise]);
 
-  const discipline = useMemo(() => {
-    switch (disciplineParam) {
+  const disciplineValue = useMemo(() => {
+    switch (discipline) {
       case 'yoga':
         return Discipline.YOGA;
       case 'general':
@@ -81,20 +81,20 @@ export function WorkoutSession({ exercise, discipline: disciplineParam }: Workou
       default:
         return Discipline.FITNESS;
     }
-  }, [disciplineParam]);
+  }, [discipline]);
 
   useEffect(() => {
-    startSession(exerciseType, discipline, 10);
+    startSession(exerciseType, disciplineValue, 10);
 
     switch (exerciseType) {
       case ExerciseType.PUSH_UPS:
-        formValidatorRef.current = new PushUpsValidator(exerciseType, discipline);
+        formValidatorRef.current = new PushUpsValidator(exerciseType, disciplineValue);
         break;
       case ExerciseType.MARCHING:
-        formValidatorRef.current = new MarchingValidator(exerciseType, discipline);
+        formValidatorRef.current = new MarchingValidator(exerciseType, disciplineValue);
         break;
       case ExerciseType.JUMPING_JACKS:
-        formValidatorRef.current = new JumpingJacksValidator(exerciseType, discipline);
+        formValidatorRef.current = new JumpingJacksValidator(exerciseType, disciplineValue);
         break;
     }
 
@@ -111,7 +111,7 @@ export function WorkoutSession({ exercise, discipline: disciplineParam }: Workou
       voiceCoachRef.current?.stop();
       endSession();
     };
-  }, [discipline, exerciseType, startSession, endSession]);
+  }, [disciplineValue, exerciseType, startSession, endSession]);
 
   const handlePoseDetected = useCallback(
     (detectedPoseFrame: PoseFrame) => {

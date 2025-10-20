@@ -3,10 +3,9 @@
  * Validates marching form by checking hip lift height and knee angle
  */
 
-import { PoseFrame } from '../types/pose.types';
-import { ExerciseType, Discipline } from '../types/exercise.types';
+import { PoseFrame, ExerciseType, Discipline, FormErrorType, Severity, LandmarkID } from '../types';
 import { calculateAngle, calculateDistance3D } from '../geometry';
-import { FormValidationResult, FormError } from './form-validator';
+import { FormValidationResult, FormError, FormMeasurements } from './form-validator';
 
 /**
  * Marching-specific thresholds
@@ -60,8 +59,8 @@ export class MarchingValidator {
   private thresholds: MarchingThresholds;
 
   constructor(
-    private exerciseType: ExerciseType,
-    private discipline: Discipline
+    _exerciseType: ExerciseType,
+    discipline: Discipline
   ) {
     // Select thresholds based on discipline
     switch (discipline) {
@@ -86,28 +85,32 @@ export class MarchingValidator {
    */
   validateForm(frame: PoseFrame): FormValidationResult {
     const errors: FormError[] = [];
+    const measurements: FormMeasurements = {};
     let totalScore = 100;
 
     // Extract landmarks
-    const leftHip = frame.landmarks.find((l) => l.id === 23);
-    const rightHip = frame.landmarks.find((l) => l.id === 24);
-    const leftKnee = frame.landmarks.find((l) => l.id === 25);
-    const rightKnee = frame.landmarks.find((l) => l.id === 26);
-    const leftAnkle = frame.landmarks.find((l) => l.id === 27);
-    const rightAnkle = frame.landmarks.find((l) => l.id === 28);
+    const leftHip = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_HIP);
+    const rightHip = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_HIP);
+    const leftKnee = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_KNEE);
+    const rightKnee = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_KNEE);
+    const leftAnkle = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_ANKLE);
+    const rightAnkle = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_ANKLE);
 
     if (!leftHip || !rightHip || !leftKnee || !rightKnee || !leftAnkle || !rightAnkle) {
       return {
         score: 0,
         errors: [
           {
-            type: 'pose_incomplete',
-            message: 'Unable to detect full body pose',
-            severity: 'high',
-            affectedLandmarks: [],
+            type: FormErrorType.POSE_INCOMPLETE,
+            severity: Severity.HIGH,
+            description: 'Unable to detect full body pose',
+            measuredValue: 0,
+            threshold: 0,
+            correction: 'Ensure the camera captures your full body',
           },
         ],
-        timestamp: frame.timestamp,
+        isAcceptable: false,
+        measurements: {},
       };
     }
 
@@ -120,45 +123,52 @@ export class MarchingValidator {
 
     // Check 1: Hip lift height
     const hipLiftHeight = liftedHip.y - liftedKnee.y; // Y decreases upward
+    measurements.hipLiftHeight = hipLiftHeight;
     if (hipLiftHeight < this.thresholds.minHipLiftHeight) {
       totalScore -= 20;
       errors.push({
-        type: 'shallow_depth',
-        message: 'Lift your knee higher toward your chest',
-        severity: 'normal',
-        affectedLandmarks: [liftedKnee.id],
+        type: FormErrorType.SHALLOW_DEPTH,
+        severity: Severity.NORMAL,
+        description: 'Lift your knee higher toward your chest',
         measuredValue: hipLiftHeight * 100,
         threshold: this.thresholds.minHipLiftHeight * 100,
+        correction: 'Drive your knee upward until it reaches hip height',
       });
     }
 
     // Check 2: Knee angle at peak lift
     const kneeAngle = calculateAngle(liftedHip, liftedKnee, liftedAnkle);
     const kneeAngleDiff = Math.abs(kneeAngle - this.thresholds.targetKneeAngle);
+    measurements.kneeAngle = {
+      left: kneeAngle,
+      right: kneeAngle,
+    };
+    measurements.kneeAngleDifference = kneeAngleDiff;
     if (kneeAngleDiff > this.thresholds.kneeAngleTolerance) {
       totalScore -= 15;
       errors.push({
-        type: 'incorrect_joint_angle',
-        message: 'Adjust your knee bend - aim for a 90-degree angle',
-        severity: 'normal',
-        affectedLandmarks: [liftedKnee.id],
+        type: FormErrorType.INCORRECT_JOINT_ANGLE,
+        severity: Severity.NORMAL,
+        description: 'Adjust your knee bend - aim for a 90-degree angle',
         measuredValue: kneeAngle,
         threshold: this.thresholds.targetKneeAngle,
+        correction: 'Raise your knee until it forms a right angle',
       });
     }
 
     // Check 3: Hip rotation (symmetry check)
     const hipDistance = calculateDistance3D(leftHip, rightHip);
-    const hipRotation = Math.abs((leftHip.z - rightHip.z) / hipDistance) * 100;
+    const hipRotation = hipDistance > 0 ? Math.abs((leftHip.z - rightHip.z) / hipDistance) * 100 : 0;
+    measurements.hipRotation = hipRotation;
     if (hipRotation > this.thresholds.maxHipRotation) {
       totalScore -= 15;
       errors.push({
-        type: 'asymmetric_movement',
-        message: 'Keep your hips level and facing forward',
-        severity: 'normal',
-        affectedLandmarks: [leftHip.id, rightHip.id],
+        type: FormErrorType.ASYMMETRIC_MOVEMENT,
+        severity: Severity.NORMAL,
+        description: 'Keep your hips level and facing forward',
         measuredValue: hipRotation,
         threshold: this.thresholds.maxHipRotation,
+        correction: 'Engage your core to prevent hip rotation',
       });
     }
 
@@ -168,22 +178,32 @@ export class MarchingValidator {
       groundedKnee,
       leftKneeLifted ? rightAnkle : leftAnkle
     );
+    measurements.standingLegAngle = standingLegAngle;
     if (standingLegAngle < 160) {
       totalScore -= 10;
       errors.push({
-        type: 'knee_valgus',
-        message: 'Keep your standing leg straight and stable',
-        severity: 'high',
-        affectedLandmarks: [groundedKnee.id],
+        type: FormErrorType.KNEE_VALGUS,
+        severity: Severity.HIGH,
+        description: 'Keep your standing leg straight and stable',
         measuredValue: standingLegAngle,
         threshold: 160,
+        correction: 'Maintain a straight supporting leg while lifting',
       });
     }
 
+    const score = Math.max(0, totalScore);
+    const severityOrder: Record<Severity, number> = {
+      [Severity.CRITICAL]: 0,
+      [Severity.HIGH]: 1,
+      [Severity.NORMAL]: 2,
+      [Severity.INFO]: 3,
+    };
+
     return {
-      score: Math.max(0, totalScore),
-      errors,
-      timestamp: frame.timestamp,
+      score,
+      errors: errors.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]),
+      isAcceptable: score >= 70,
+      measurements,
     };
   }
 }

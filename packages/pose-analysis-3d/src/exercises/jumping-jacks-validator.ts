@@ -3,10 +3,16 @@
  * Validates jumping jacks form by checking arm extension and leg spread
  */
 
-import { PoseFrame } from '../types/pose.types';
-import { ExerciseType, Discipline } from '../types/exercise.types';
+import {
+  PoseFrame,
+  ExerciseType,
+  Discipline,
+  FormErrorType,
+  Severity,
+  LandmarkID,
+} from '../types';
 import { calculateAngle, calculateDistance3D } from '../geometry';
-import { FormValidationResult, FormError } from './form-validator';
+import { FormValidationResult, FormError, FormMeasurements } from './form-validator';
 
 /**
  * Jumping jacks-specific thresholds
@@ -60,8 +66,8 @@ export class JumpingJacksValidator {
   private thresholds: JumpingJacksThresholds;
 
   constructor(
-    private exerciseType: ExerciseType,
-    private discipline: Discipline
+    _exerciseType: ExerciseType,
+    discipline: Discipline
   ) {
     // Select thresholds based on discipline
     switch (discipline) {
@@ -86,19 +92,20 @@ export class JumpingJacksValidator {
    */
   validateForm(frame: PoseFrame): FormValidationResult {
     const errors: FormError[] = [];
+    const measurements: FormMeasurements = {};
     let totalScore = 100;
 
     // Extract landmarks
-    const leftShoulder = frame.landmarks.find((l) => l.id === 11);
-    const rightShoulder = frame.landmarks.find((l) => l.id === 12);
-    const leftElbow = frame.landmarks.find((l) => l.id === 13);
-    const rightElbow = frame.landmarks.find((l) => l.id === 14);
-    const leftWrist = frame.landmarks.find((l) => l.id === 15);
-    const rightWrist = frame.landmarks.find((l) => l.id === 16);
-    const leftHip = frame.landmarks.find((l) => l.id === 23);
-    const rightHip = frame.landmarks.find((l) => l.id === 24);
-    const leftAnkle = frame.landmarks.find((l) => l.id === 27);
-    const rightAnkle = frame.landmarks.find((l) => l.id === 28);
+    const leftShoulder = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_SHOULDER);
+    const rightShoulder = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_SHOULDER);
+    const leftElbow = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_ELBOW);
+    const rightElbow = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_ELBOW);
+    const leftWrist = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_WRIST);
+    const rightWrist = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_WRIST);
+    const leftHip = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_HIP);
+    const rightHip = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_HIP);
+    const leftAnkle = frame.landmarks.find((l) => l.id === LandmarkID.LEFT_ANKLE);
+    const rightAnkle = frame.landmarks.find((l) => l.id === LandmarkID.RIGHT_ANKLE);
 
     if (
       !leftShoulder ||
@@ -116,13 +123,16 @@ export class JumpingJacksValidator {
         score: 0,
         errors: [
           {
-            type: 'pose_incomplete',
-            message: 'Unable to detect full body pose',
-            severity: 'high',
-            affectedLandmarks: [],
+            type: FormErrorType.POSE_INCOMPLETE,
+            severity: Severity.HIGH,
+            description: 'Unable to detect full body pose',
+            measuredValue: 0,
+            threshold: 0,
+            correction: 'Ensure the camera captures your full body',
           },
         ],
-        timestamp: frame.timestamp,
+        isAcceptable: false,
+        measurements: {},
       };
     }
 
@@ -131,16 +141,17 @@ export class JumpingJacksValidator {
     const leftArmAngle = this.calculateArmElevationAngle(leftShoulder, leftWrist);
     const rightArmAngle = this.calculateArmElevationAngle(rightShoulder, rightWrist);
     const avgArmAngle = (leftArmAngle + rightArmAngle) / 2;
+    measurements.armElevation = { left: leftArmAngle, right: rightArmAngle };
 
     if (avgArmAngle < this.thresholds.minArmElevation) {
       totalScore -= 25;
       errors.push({
-        type: 'shallow_depth',
-        message: 'Raise your arms higher overhead',
-        severity: 'normal',
-        affectedLandmarks: [leftWrist.id, rightWrist.id],
+        type: FormErrorType.SHALLOW_DEPTH,
+        severity: Severity.NORMAL,
+        description: 'Raise your arms higher overhead',
         measuredValue: avgArmAngle,
         threshold: this.thresholds.minArmElevation,
+        correction: 'Lift both arms until they are vertical above your head',
       });
     }
 
@@ -148,30 +159,32 @@ export class JumpingJacksValidator {
     const leftArmExtension = calculateAngle(leftShoulder, leftElbow, leftWrist);
     const rightArmExtension = calculateAngle(rightShoulder, rightElbow, rightWrist);
     const minArmExtension = Math.min(leftArmExtension, rightArmExtension);
+    measurements.armExtension = { left: leftArmExtension, right: rightArmExtension };
 
     if (minArmExtension < this.thresholds.minArmExtension) {
       totalScore -= 15;
       errors.push({
-        type: 'incorrect_joint_angle',
-        message: 'Straighten your arms more during the movement',
-        severity: 'normal',
-        affectedLandmarks: [leftElbow.id, rightElbow.id],
+        type: FormErrorType.INCORRECT_JOINT_ANGLE,
+        severity: Severity.NORMAL,
+        description: 'Straighten your arms more during the movement',
         measuredValue: minArmExtension,
         threshold: this.thresholds.minArmExtension,
+        correction: 'Extend your elbows fully as you reach overhead',
       });
     }
 
     // Check 3: Shoulder symmetry
     const shoulderAsymmetry = Math.abs(leftArmAngle - rightArmAngle);
+    measurements.shoulderAsymmetry = shoulderAsymmetry;
     if (shoulderAsymmetry > this.thresholds.maxShoulderAsymmetry) {
       totalScore -= 15;
       errors.push({
-        type: 'asymmetric_movement',
-        message: 'Keep both arms at the same height',
-        severity: 'normal',
-        affectedLandmarks: [leftShoulder.id, rightShoulder.id],
+        type: FormErrorType.ASYMMETRIC_MOVEMENT,
+        severity: Severity.NORMAL,
+        description: 'Keep both arms at the same height',
         measuredValue: shoulderAsymmetry,
         threshold: this.thresholds.maxShoulderAsymmetry,
+        correction: 'Raise both arms evenly to match height',
       });
     }
 
@@ -179,37 +192,48 @@ export class JumpingJacksValidator {
     const shoulderWidth = calculateDistance3D(leftShoulder, rightShoulder);
     const legSpread = calculateDistance3D(leftAnkle, rightAnkle);
     const spreadRatio = legSpread / shoulderWidth;
+    measurements.legSpreadRatio = spreadRatio;
 
     if (spreadRatio < this.thresholds.minLegSpread) {
       totalScore -= 20;
       errors.push({
-        type: 'shallow_depth',
-        message: 'Jump your feet wider apart',
-        severity: 'normal',
-        affectedLandmarks: [leftAnkle.id, rightAnkle.id],
+        type: FormErrorType.SHALLOW_DEPTH,
+        severity: Severity.NORMAL,
+        description: 'Jump your feet wider apart',
         measuredValue: spreadRatio,
         threshold: this.thresholds.minLegSpread,
+        correction: 'Land with your feet wider than shoulder width',
       });
     }
 
     // Check 5: Hip alignment (should stay level)
     const hipTilt = Math.abs(leftHip.y - rightHip.y);
+    measurements.hipTilt = hipTilt;
     if (hipTilt > 0.05) {
       totalScore -= 10;
       errors.push({
-        type: 'asymmetric_movement',
-        message: 'Keep your hips level during the jump',
-        severity: 'normal',
-        affectedLandmarks: [leftHip.id, rightHip.id],
+        type: FormErrorType.ASYMMETRIC_MOVEMENT,
+        severity: Severity.NORMAL,
+        description: 'Keep your hips level during the jump',
         measuredValue: hipTilt * 100,
         threshold: 5,
+        correction: 'Engage your core to prevent hip tilting side to side',
       });
     }
 
+    const score = Math.max(0, totalScore);
+    const severityOrder: Record<Severity, number> = {
+      [Severity.CRITICAL]: 0,
+      [Severity.HIGH]: 1,
+      [Severity.NORMAL]: 2,
+      [Severity.INFO]: 3,
+    };
+
     return {
-      score: Math.max(0, totalScore),
-      errors,
-      timestamp: frame.timestamp,
+      score,
+      errors: errors.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]),
+      isAcceptable: score >= 70,
+      measurements,
     };
   }
 
